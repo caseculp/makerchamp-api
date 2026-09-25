@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING          // order row created, payment intent created
+  LABEL_PURCHASED  // EasyPost label bought successfully
+  FAILED           // shipping (or another downstream step) failed
+}
+
+model Merchant {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  stripeAccountId String   // Stripe Connect account id (acct_...), used as the destination for the split charge
+  businessName    String
+  address         Json     // { name, street1, street2?, city, state, zip, country } — used as the EasyPost "from_address"
+  createdAt       DateTime @default(now())
+
+  orders          Order[]
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  merchant          Merchant    @relation(fields: [merchantId], references: [id])
+  merchantId        String
+
+  customerName      String
+  shippingAddress   Json        // { street1, street2?, city, state, zip }
+
+  itemPriceCents    Int
+  platformFeeCents  Int
+
+  status            OrderStatus @default(PENDING)
+  trackingCode      String?
+  labelUrl          String?
+
+  createdAt         DateTime    @default(now())
+
+  @@index([merchantId])
+}
